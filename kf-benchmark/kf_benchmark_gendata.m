@@ -44,10 +44,31 @@ format long
     P0 = eye(4);
 
 %%
-% Load data
+% Simulate data
 %
-    X = load('xdata.txt')';
-    Y = load('ydata.txt')';
+    randn('state',33);
+
+    steps = 100;
+    X = zeros(size(A,1),steps);
+    Y = zeros(size(H,1),steps);
+    x = m0;
+    for k=1:steps
+        q = chol(Q)'*randn(size(A,1),1);
+        x = A*x + q;
+        y = H*x + s*randn(2,1);
+        X(:,k) = x;
+        Y(:,k) = y;
+    end
+    Xt = X';
+    Yt = Y';
+    
+    save -ascii ydata.txt Yt;
+    save -ascii xdata.txt Xt;
+    
+%    plot(X(1,:),X(2,:),'-',Y(1,:),Y(2,:),'.',X(1,1),X(2,1),'*');
+%    legend('Trajectory','Measurements');
+%    xlabel('{\it x}_1');
+%    ylabel('{\it x}_2');
 
 %%
 % Kalman filter
@@ -79,6 +100,13 @@ format long
     rmse_raw = sqrt(mean(sum((Y - X(1:2,:)).^2,1)))
     rmse_kf = sqrt(mean(sum((kf_m(1:2,:) - X(1:2,:)).^2,1)))
     
+%    clf;
+%    h=plot(X(1,:),X(2,:),'-',Y(1,:),Y(2,:),'o',...
+%        kf_m(1,:),kf_m(2,:),'-');
+%    legend('True Trajectory','Measurements','Filter Estimate');
+%    xlabel('{\it x}_1');
+%    ylabel('{\it x}_2');
+
 %%
 % RTS smoother
 %
@@ -106,4 +134,12 @@ format long
     rmse_rts = sqrt(mean(sum((rts_m(1:2,:) - X(1:2,:)).^2,1)))
     
     ms
+    
+%     clf;
+%     h=plot(X(1,:),X(2,:),'-',Y(1,:),Y(2,:),'o',...
+%         rts_m(1,:),rts_m(2,:),'-');
+%     legend('True Trajectory','Measurements','Smoother Estimate');
+%     xlabel('{\it x}_1');
+%     ylabel('{\it x}_2');
+
     
