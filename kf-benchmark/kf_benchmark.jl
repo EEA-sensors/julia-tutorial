@@ -81,41 +81,41 @@
 
     println("m = ", m)
 
-#    rmse_kf = sqrt(mean(sum((kf_m[1:2,:] - X[1:2,:]).^2,1)))
+    rmse_kf = sqrt(mean(sum((kf_m[1:2,:] - X[1:2,:]).^2,1)))
 
-#    println("rmse_kf = ", rmse_kf)
+    println("rmse_kf = ", rmse_kf)
 
 #
 # RTS smoother
 #
 
-    # rts_m = zeros(size(m,1),size(Y,2));
-    # rts_P = zeros(size(P,1),size(P,2),size(Y,2));
+    rts_m = zeros(size(m,1),size(Y,2));
+    rts_P = zeros(size(P,1),size(P,2),size(Y,2));
     
-    # ms = m;
-    # Ps = P;
+    ms = m;
+    Ps = P;
 
-    # tic()
-    # for i in 1:niter
-    #     ms = m;
-    #     Ps = P;    
-    #     rts_m[:,end] = ms;
-    #     rts_P[:,:,end] = Ps;
-    #     for k in size(kf_m,2)-1:-1:1
-    #         mp = A*kf_m[:,k];
-    #         Pp = A*kf_P[:,:,k]*A'+Q;
-    #         Ck = kf_P[:,:,k]*A'/Pp; 
-    #         ms = kf_m[:,k] + Ck*(ms - mp);
-    #         Ps = kf_P[:,:,k] + Ck*(Ps - Pp)*Ck';
-    #         rts_m[:,k] = ms;
-    #         rts_P[:,:,k] = Ps;
-    #     end
-    # end
-    # toc()
+    tic()
+    for i in 1:niter
+        ms = m;
+        Ps = P;    
+        rts_m[:,end] = ms;
+        rts_P[:,:,end] = Ps;
+        for k in size(kf_m,2)-1:-1:1
+            mp = A*kf_m[:,k];
+            Pp = A*kf_P[:,:,k]*A'+Q;
+            Ck = kf_P[:,:,k]*A'/Pp; 
+            ms = kf_m[:,k] + Ck*(ms - mp);
+            Ps = kf_P[:,:,k] + Ck*(Ps - Pp)*Ck';
+            rts_m[:,k] = ms;
+            rts_P[:,:,k] = Ps;
+        end
+    end
+    toc()
     
-    # println("ms = ", ms)
+    println("ms = ", ms)
 
-    # rmse_rts = sqrt(mean(sum((rts_m[1:2,:] - X[1:2,:]).^2,1)))
+    rmse_rts = sqrt(mean(sum((rts_m[1:2,:] - X[1:2,:]).^2,1)))
     
-    # println("rmse_rts = ", rmse_rts)
+    println("rmse_rts = ", rmse_rts)
 
