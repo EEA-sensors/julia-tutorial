@@ -1,0 +1,168 @@
+MacBook Pro 10.10.5 Yosemite, 3.1 GHz Intel Core i7, 16 Gt, 1867 MHz DDR3
+
+Simo-MacBook-Pro% g++ --version
+Configured with: --prefix=/Applications/Xcode.app/Contents/Developer/usr --with-gxx-include-dir=/usr/include/c++/4.2.1
+Apple LLVM version 7.0.0 (clang-700.1.76)
+Target: x86_64-apple-darwin14.5.0
+Thread model: posix
+
+
+Simo-MacBook-Pro% java -version
+java version "1.8.0_65"
+Java(TM) SE Runtime Environment (build 1.8.0_65-b17)
+Java HotSpot(TM) 64-Bit Server VM (build 25.65-b01, mixed mode)
+
+
+Simo-MacBook-Pro% julia
+               _
+   _       _ _(_)_     |  A fresh approach to technical computing
+  (_)     | (_) (_)    |  Documentation: http://docs.julialang.org
+   _ _   _| |_  __ _   |  Type "?help" for help.
+  | | | | | | |/ _` |  |
+  | | |_| | | | (_| |  |  Version 0.4.0 (2015-10-08 06:20 UTC)
+ _/ |\__'_|_|_|\__'_|  |  Official http://julialang.org/ release
+|__/                   |  x86_64-apple-darwin13.4.0
+
+
+>> version
+
+ans =
+
+8.4.0.150421 (R2014b)
+
+octave:10> version
+ans = 3.8.2
+octave:11> 
+
+
+Simo-MacBook-Pro% python --version
+Python 2.7.10
+
+
+
+Simo-MacBook-Pro% ./kf_benchmark         
+niter = 10000
+Size of X is 100
+Size of Y is 100
+Elapsed time is 0.256905 seconds.
+m = 
+  9.71005
+ -10.3445
+  2.95657
+-0.856533
+rmse_kf = 0.425382
+Elapsed time is 0.490346 seconds.
+rmse_rts = 0.264971
+ms = 
+    0.75013
+-0.00468798
+    1.03442
+   -1.34959
+
+
+Simo-MacBook-Pro% sh run_java.sh    
+Read 100 observations.
+niter = 10000
+Elapsed time 1.699 seconds.
+m = Type = dense real , numRows = 4 , numCols = 1
+ 9,710  
+-10,344  
+ 2,957  
+-0,857  
+
+rmse_kf = 0.42538246095857857
+Elapsed time 1.543 seconds.
+ms = Type = dense real , numRows = 4 , numCols = 1
+ 0,750  
+-0,005  
+ 1,034  
+-1,350  
+
+rmse_rts = 0.26497103880280787
+
+
+julia> include("kf_benchmark.jl")
+niter = 10000
+elapsed time: 8.960016802 seconds
+m = [9.710054217497836,-10.344490644826095,2.9565667444996344,-0.8565331446416777]
+rmse_kf = 0.42538246095857873
+elapsed time: 12.547804952 seconds
+ms = [0.75013033613024,-0.004687981634955707,1.0344166053365371,-1.3495926904204876]
+rmse_rts = 0.2649710388028077
+
+
+>> kf_benchmark
+
+niter =
+
+       10000
+
+Elapsed time is 13.968916 seconds.
+
+m =
+
+   9.710054217497836
+ -10.344490644826095
+   2.956566744499635
+  -0.856533144641678
+
+
+rmse_raw =
+
+   0.767985517323973
+
+
+rmse_kf =
+
+   0.425382460958579
+
+Elapsed time is 21.610301 seconds.
+
+rmse_rts =
+
+   0.264971038802808
+
+
+ms =
+
+   0.750130336130241
+  -0.004687981634955
+   1.034416605336537
+  -1.349592690420488
+
+
+octave:7> kf_benchmark
+niter =  10000
+Elapsed time is 60.6021 seconds.
+m =
+
+    9.710054217497836
+  -10.344490644826095
+    2.956566744499634
+   -0.856533144641677
+
+rmse_raw =  0.767985517323973
+rmse_kf =  0.425382460958579
+Elapsed time is 87.7424 seconds.
+rmse_rts =  0.264971038802808
+ms =
+
+   0.75013033613024038
+  -0.00468798163495532
+   1.03441660533653645
+  -1.34959269042048802
+
+
+Simo-MacBook-Pro% python kf_benchmark.py
+Elapsed time 138.077860117 seconds.
+m =  [[  9.71005422]
+ [-10.34449064]
+ [  2.95656674]
+ [ -0.85653314]]
+rmse_kf =  0.425382460959
+Elapsed time 107.945866108 seconds.
+ms =  [[ 0.75013034]
+ [-0.00468798]
+ [ 1.03441661]
+ [-1.34959269]]
+rmse_rts =  0.264971038803
