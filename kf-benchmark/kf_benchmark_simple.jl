@@ -24,9 +24,7 @@
 #
 
     X = readdlm("xdata.txt")';
-    X = [X[:,k] for k in 1:size(X,2)]
     Y = readdlm("ydata.txt")';
-    Y = [Y[:,k] for k in 1:size(Y,2)]
 
 #
 # Set the parameters
@@ -56,8 +54,8 @@
 # Kalman filter
 #
 
-    kf_m = [zeros(size(m0)) for i in 1:length(Y)];
-    kf_P = [zeros(size(P0)) for i in 1:length(Y)];
+    kf_m = zeros(size(m0,1),size(Y,2));
+    kf_P = zeros(size(P0,1),size(P0,2),size(Y,2));
 
     m = m0;
     P = P0;
@@ -66,28 +64,24 @@
     for i in 1:niter
         m = m0;
         P = P0;
-        for k in 1:length(Y)
+        for k in 1:size(Y,2)
             m = A*m;
             P = A*P*A' + Q;
 
             S = H*P*H' + R;
             K = P*H'/S;
-            m = m + K*(Y[k] - H*m);
+            m = m + K*(Y[:,k] - H*m);
             P = P - K*S*K';
 
-            kf_m[k] = m;
-            kf_P[k] = P;
+            kf_m[:,k] = m;
+            kf_P[:,:,k] = P;
         end
     end
     toc()
 
     println("m = ", m)
 
-    rmse_kf = 0.0;
-    for k in 1:length(kf_m)
-        rmse_kf = rmse_kf + sum((kf_m[k][1:2,1] - X[k][1:2,1]).^2)
-    end
-    rmse_kf = sqrt(rmse_kf / length(kf_m))
+    rmse_kf = sqrt(mean(sum((kf_m[1:2,:] - X[1:2,:]).^2,1)))
 
     println("rmse_kf = ", rmse_kf)
 
@@ -95,8 +89,8 @@
 # RTS smoother
 #
 
-    rts_m = [zeros(size(m0)) for i in 1:length(Y)];
-    rts_P = [zeros(size(P0)) for i in 1:length(Y)];
+    rts_m = zeros(size(m,1),size(Y,2));
+    rts_P = zeros(size(P,1),size(P,2),size(Y,2));
     
     ms = m;
     Ps = P;
@@ -105,27 +99,23 @@
     for i in 1:niter
         ms = m;
         Ps = P;    
-        rts_m[end] = ms;
-        rts_P[end] = Ps;
-        for k in length(kf_m)-1:-1:1
-            mp = A*kf_m[k];
-            Pp = A*kf_P[k]*A'+Q;
-            Ck = kf_P[k]*A'/Pp; 
-            ms = kf_m[k] + Ck*(ms - mp);
-            Ps = kf_P[k] + Ck*(Ps - Pp)*Ck';
-            rts_m[k] = ms;
-            rts_P[k] = Ps;
+        rts_m[:,end] = ms;
+        rts_P[:,:,end] = Ps;
+        for k in size(kf_m,2)-1:-1:1
+            mp = A*kf_m[:,k];
+            Pp = A*kf_P[:,:,k]*A'+Q;
+            Ck = kf_P[:,:,k]*A'/Pp; 
+            ms = kf_m[:,k] + Ck*(ms - mp);
+            Ps = kf_P[:,:,k] + Ck*(Ps - Pp)*Ck';
+            rts_m[:,k] = ms;
+            rts_P[:,:,k] = Ps;
         end
     end
     toc()
     
     println("ms = ", ms)
 
-    rmse_rts = 0.0;
-    for k in 1:length(rts_m)
-        rmse_rts = rmse_rts + sum((rts_m[k][1:2,1] - X[k][1:2,1]).^2)
-    end
-    rmse_rts = sqrt(rmse_rts / length(rts_m))
+    rmse_rts = sqrt(mean(sum((rts_m[1:2,:] - X[1:2,:]).^2,1)))
     
     println("rmse_rts = ", rmse_rts)
 

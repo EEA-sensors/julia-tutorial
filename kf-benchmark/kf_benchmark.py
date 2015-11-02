@@ -26,7 +26,9 @@ from scipy import linalg
 # Load data
 #
 X = np.loadtxt('xdata.txt').T
-Y = np.loadtxt('ydata.txt').T
+Y_tmp = np.loadtxt('ydata.txt').T
+Y = [np.matrix(Y_tmp[:,k]).T for k in range(Y_tmp.shape[1])]
+
 
 #
 # Parameters
@@ -56,22 +58,21 @@ niter = 10000
 # Kalman filter
 #
 
-kf_m = [np.zeros([P0.shape[0],1]) for k in range(Y.shape[1])]
-kf_P = [np.zeros([P0.shape[0],P0.shape[0]]) for k in range(Y.shape[1])]
+kf_m = [np.zeros([P0.shape[0],1]) for k in range(len(Y))]
+kf_P = [np.zeros([P0.shape[0],P0.shape[0]]) for k in range(len(Y))]
 
 start_time = time.time()
 
 for i in range(niter):
     m = m0
     P = P0
-    for k in range(Y.shape[1]):
+    for k in range(len(Y)):
         m = A.dot(m)
         P = A.dot(P).dot(A.T) + Q
         
         LL = linalg.cho_factor(H.dot(P).dot(H.T) + R)
         K = linalg.cho_solve(LL, H.dot(P.T)).T
-        y = np.matrix(Y[:,k]).T
-        m += K.dot(y-H.dot(m))
+        m += K.dot(Y[k]-H.dot(m))
         P -= K.dot(H).dot(P)
         
         kf_m[k] = m
@@ -92,8 +93,8 @@ print "rmse_kf = ", rmse_kf
 # RTS smoother
 #
 
-rts_m = [np.zeros([P0.shape[0],1]) for k in range(Y.shape[1])]
-rts_P = [np.zeros([P0.shape[0],P0.shape[0]]) for k in range(Y.shape[1])]
+rts_m = [np.zeros([P0.shape[0],1]) for k in range(len(Y))]
+rts_P = [np.zeros([P0.shape[0],P0.shape[0]]) for k in range(len(Y))]
 
 start_time = time.time()
 
@@ -102,7 +103,7 @@ for i in range(niter):
     Ps = P
     rts_m[-1] = ms
     rts_P[-1] = Ps
-    for k in reversed(range(Y.shape[1]-1)):
+    for k in reversed(range(len(Y)-1)):
         mp = A.dot(kf_m[k])
         Pp = A.dot(kf_P[k]).dot(A.T) + Q
         

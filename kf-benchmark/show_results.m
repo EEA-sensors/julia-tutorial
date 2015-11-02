@@ -2,8 +2,8 @@
 
 
 names = {'C++','Java','Julia','Matlab','Octave','Python'};
-f_times = [0.256905 1.699 8.960016802 13.968916 60.6021 138.077860117];
-s_times = [0.490346 1.543 12.547804952 21.610301 87.7424 107.945866108];
+f_times = [0.256905 1.699 4.287048136 13.968916 60.6021 123.842566967];
+s_times = [0.490346 1.543 4.710070576 21.610301 87.7424 103.221923113];
 
 clf;
 
@@ -27,8 +27,8 @@ for i=1:2
     lbl = [];
     for i=1:numel(y), % create annotations
       % store the handles for later use
-      th(i) = text(y(i)+6,x(i),sprintf('%.1f',y(i))) ;
-      lbl(i) = text(-15,x(i),names{i}) ;
+      th(i) = text(y(i)+10,x(i),sprintf('%.1f',y(i))) ;
+      lbl(i) = text(-30,x(i),names{i}) ;
     end
     set(gca,'YTick',[])
     xlabel('Elapsed time in seconds');
@@ -60,4 +60,6 @@ for i=1:length(names)
         fprintf('\\\\ \n');
     end
 end
+
+print -dpng -r300 times;
 
