@@ -7,7 +7,6 @@ s_times = [0.490346 1.543 4.710070576 21.610301 87.7424 103.221923113];
 
 clf;
 
-
 for i=1:2
     subplot(1,2,i);
     
@@ -22,20 +21,25 @@ for i=1:2
 
     h = barh(x,y) ; % create bar
     set(h,'FaceColor',[1 1 0]);
+    set(gca,'FontSize',12)
 
     th = [];
     lbl = [];
     for i=1:numel(y), % create annotations
       % store the handles for later use
-      th(i) = text(y(i)+10,x(i),sprintf('%.1f',y(i))) ;
-      lbl(i) = text(-30,x(i),names{i}) ;
+      th(i) = text(y(i)+15,x(i),sprintf('%.1f',y(i))) ;
+      lbl(i) = text(-10,x(i),names{i}) ;
     end
     set(gca,'YTick',[])
+    
     xlabel('Elapsed time in seconds');
 
     % center all annotations at once using the handles
     set(th,'horizontalalignment','center', ...
-    'verticalalignment','bottom') ; 
+    'verticalalignment','bottom','FontSize',12) ; 
+
+    set(lbl,'horizontalalignment','right', ...
+    'verticalalignment','bottom','FontSize',12) ; 
 
     title(titl);
 end

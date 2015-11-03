@@ -1,5 +1,5 @@
-%\documentclass[xcolor=svgnames,english,presentation]{beamer}
-\documentclass[xcolor=svgnames,english,handout]{beamer}
+\documentclass[xcolor=svgnames,english,presentation]{beamer}
+%\documentclass[xcolor=svgnames,english,handout]{beamer}
 
 %\usepackage{againframetitle}
 %\aftOptions{style=NumberedLast}
@@ -148,7 +148,6 @@
   \item \alert{Modern programming concepts} found in Python and Lisp, but not in Matlab.
   \item \alert{Multiple dispatching} (kind of polymorphism).
   \item \alert{Operator overloading} (operators and functions).
-  \item However, \alert{no object-oriented programming} constructs.
   \begin{itemize}[<+->]       
   \item $\Rightarrow$ {\it Demo}
   \end{itemize}
@@ -159,20 +158,26 @@
 \begin{frame}
   \frametitle{Performance I}
   \centering
+  Performance comparison from \url{http://julialang.org/}: 
+
+  \vspace{0.5cm}
+
   \includegraphics[width=\textwidth]{perf}
 \end{frame}
 
 \begin{frame}
   \frametitle{Performance II}
   \centering
-  \includegraphics[width=0.8\textwidth]{kf-benchmark/times}
+  \includegraphics[width=0.7\textwidth]{kf-benchmark/times}
+
+  \alert{Relative computation time (filter + smoother):}
 
   \begin{tabular}{|c|c|c|c|c|c|}
   \hline
-  C++     & Java    & Julia   & Matlab  & Octave  & Python  \\ 
+  {\bf C++}     & {\bf Java}    & {\bf Julia}   & {\bf Matlab}  & {\bf Octave}  & {\bf Python}  \\ 
   \hline
-1       & 4       & 12      & 48      & 199     & 304     \\ 
-  \hline
+1       & 4       & 12      & 48      & 199     & 304 \\
+\hline
   \end{tabular}
 \end{frame}
 
@@ -180,14 +185,14 @@
   \frametitle{Quick practical experiences}
 
   \begin{itemize}[<+->]
-  \item \alert{Transliteration from Matlab} is very easy (with performance catches).
-  \item Faster than \alert{Matlab}, but loses to \alert{C++ and Java}.
-  \item Much faster than \alert{Python or Octave} (no surprise).
-  \item Some \alert{good programming features} (e.g. proper lists).
-  \item \alert{No objects or classes!}
-  \item Programming environment quite \alert{clumsy to get working}.
-  \item \alert{Plotting features are just awful}.
-  \item \alert{No proper IDEs}.
+  \item[\textcolor{green}\checkmark] \alert{Transliteration from Matlab} is very easy (with performance catches).
+  \item[\textcolor{green}\checkmark] Faster than \alert{Matlab}, but loses to \alert{C++ and Java}.
+  \item[\textcolor{green}\checkmark] Much faster than \alert{Python or Octave} (no surprise).
+  \item[\textcolor{green}\checkmark] Some \alert{good programming features} (proper lists, functional programming, multiple dispaching, \ldots).
+  \item[\textcolor{red}\checkmark] \alert{No objects or classes!}
+  \item[\textcolor{red}\checkmark] Programming environment quite \alert{clumsy to get working}.
+  \item[\textcolor{red}\checkmark] \alert{Plotting features} are just awful.
+  \item[\textcolor{red}\checkmark] No proper \alert{IDEs}.
   \end{itemize}
 
 \end{frame}
