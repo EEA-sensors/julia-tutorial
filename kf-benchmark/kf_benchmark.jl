@@ -19,6 +19,38 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 =#
 
+using DelimitedFiles
+using LinearAlgebra
+
+#
+# Kalman filter
+#
+function kf(m0, P0, A, Q, H, R, niter)
+    kf_m = [zeros(size(m0)) for i in 1:length(Y)];
+    kf_P = [zeros(size(P0)) for i in 1:length(Y)];
+
+    m = m0;
+    P = P0;
+
+    for i in 1:niter
+        m = m0;
+        P = P0;
+        for k in 1:length(Y)
+            m = A*m;
+            P = A*P*A' + Q;
+
+            S = H*P*H' + R;
+            K = P*H'/S;
+            m = m + K*(Y[k] - H*m);
+            P = P - K*S*K';
+
+            kf_m[k] = m;
+            kf_P[k] = P;
+        end
+    end
+    return kf_m, kf_P;
+end
+
 #
 # Read data
 #
@@ -45,42 +77,24 @@
 
     H = [1.0 0 0 0;
          0 1.0 0 0];
-    R = s^2*eye(2);
+    R = s^2*I(2);
     m0 = [0;0;1.0;-1.0];
-    P0 = eye(4);
+    P0 = I(4);
 
     niter = 10000
     println("niter = ", niter)
 
 #
-# Kalman filter
+# Run KF
 #
+function run_kf()
+    kf_t = @elapsed begin
+        kf_m, kf_P = kf(m0, P0, A, Q, H, R, niter);
+    end;
+    @show kf_t;
 
-    kf_m = [zeros(size(m0)) for i in 1:length(Y)];
-    kf_P = [zeros(size(P0)) for i in 1:length(Y)];
-
-    m = m0;
-    P = P0;
-
-    tic()
-    for i in 1:niter
-        m = m0;
-        P = P0;
-        for k in 1:length(Y)
-            m = A*m;
-            P = A*P*A' + Q;
-
-            S = H*P*H' + R;
-            K = P*H'/S;
-            m = m + K*(Y[k] - H*m);
-            P = P - K*S*K';
-
-            kf_m[k] = m;
-            kf_P[k] = P;
-        end
-    end
-    toc()
-
+    kf_m, kf_P = kf(m0, P0, A, Q, H, R, 1);
+    m = kf_m[end]
     println("m = ", m)
 
     rmse_kf = 0.0;
@@ -91,17 +105,22 @@
 
     println("rmse_kf = ", rmse_kf)
 
+    return kf_t;
+end
+
+run_kf();
+
 #
 # RTS smoother
 #
+function rts(kf_m, kf_P, A, Q, niter)
+    T = length(kf_m)
+    rts_m = [zeros(size(kf_m[1])) for i in 1:T];
+    rts_P = [zeros(size(kf_P[1])) for i in 1:T];
 
-    rts_m = [zeros(size(m0)) for i in 1:length(Y)];
-    rts_P = [zeros(size(P0)) for i in 1:length(Y)];
-    
-    ms = m;
-    Ps = P;
+    m = kf_m[end];
+    P = kf_P[end];
 
-    tic()
     for i in 1:niter
         ms = m;
         Ps = P;    
@@ -117,8 +136,20 @@
             rts_P[k] = Ps;
         end
     end
-    toc()
-    
+    return rts_m, rts_P;
+end
+
+function run_rts()
+    kf_m, kf_P = kf(m0, P0, A, Q, H, R, 1);
+
+    rts_t = @elapsed begin
+        rts_m, rts_P = rts(kf_m, kf_P, A, Q, niter);
+    end;
+    @show rts_t;
+
+    rts_m, rts_P = rts(kf_m, kf_P, A, Q, 1);
+
+    ms = rts_m[1]
     println("ms = ", ms)
 
     rmse_rts = 0.0;
@@ -126,6 +157,9 @@
         rmse_rts = rmse_rts + sum((rts_m[k][1:2,1] - X[k][1:2,1]).^2)
     end
     rmse_rts = sqrt(rmse_rts / length(rts_m))
-    
-    println("rmse_rts = ", rmse_rts)
 
+    println("rmse_rts = ", rmse_rts)
+    return rts_t;
+end
+
+run_rts();

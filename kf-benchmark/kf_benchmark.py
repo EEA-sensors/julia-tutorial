@@ -63,10 +63,10 @@ kf_P = [np.zeros([P0.shape[0],P0.shape[0]]) for k in range(len(Y))]
 
 start_time = time.time()
 
-for i in xrange(niter):
+for i in range(niter):
     m = m0
     P = P0
-    for k in xrange(len(Y)):
+    for k in range(len(Y)):
         m = A.dot(m)
         P = A.dot(P).dot(A.T) + Q
         
@@ -80,14 +80,14 @@ for i in xrange(niter):
 
 print("Elapsed time %s seconds." % (time.time() - start_time))
         
-print "m = ", m
+print(f"{m:}")
 
 rmse_kf = 0
 for k in range(len(kf_m)):
     rmse_kf += (kf_m[k][0] - X[0,k]) * (kf_m[k][0] - X[0,k]) + (kf_m[k][1] - X[1,k]) * (kf_m[k][1] - X[1,k])
 
 rmse_kf = sqrt(rmse_kf / len(kf_m))
-print "rmse_kf = ", rmse_kf
+print(f"{rmse_kf:}")
 
 #
 # RTS smoother
@@ -98,12 +98,12 @@ rts_P = [np.zeros([P0.shape[0],P0.shape[0]]) for k in range(len(Y))]
 
 start_time = time.time()
 
-for i in xrange(niter):
+for i in range(niter):
     ms = m
     Ps = P
     rts_m[-1] = ms
     rts_P[-1] = Ps
-    for k in reversed(xrange(len(Y)-1)):
+    for k in reversed(range(len(Y)-1)):
         mp = A.dot(kf_m[k])
         Pp = A.dot(kf_P[k]).dot(A.T) + Q
         
@@ -117,11 +117,11 @@ for i in xrange(niter):
 
 print("Elapsed time %s seconds." % (time.time() - start_time))
         
-print "ms = ", ms
+print("{ms:}")
 
 rmse_rts = 0
 for k in range(len(rts_m)):
     rmse_rts += (rts_m[k][0] - X[0,k]) * (rts_m[k][0] - X[0,k]) + (rts_m[k][1] - X[1,k]) * (rts_m[k][1] - X[1,k])
 
 rmse_rts = sqrt(rmse_rts / len(rts_m))
-print "rmse_rts = ", rmse_rts
+print(f"{rmse_rts:}")
