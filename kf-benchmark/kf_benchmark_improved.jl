@@ -71,11 +71,9 @@ println("niter = ", niter)
 #
 
 kf_m = [SArray{Tuple{4}}(zeros(size(m0))) for i in 1:length(Y)];
-
 kf_P = [SArray{Tuple{4,4}}(zeros(size(P0))) for i in 1:length(Y)];
 
-
-function kfilt!(x,y, niter, m0, P0, A, Q, H,Y,R)
+function kfilt!(x, y, niter, m0, P0, A, Q, H, Y, R)
     m = SArray{Tuple{4}}(m0)
     P = SArray{Tuple{4,4}}(P0)
     At = A'
@@ -101,15 +99,15 @@ function kfilt!(x,y, niter, m0, P0, A, Q, H,Y,R)
 end
 
 
-x=kf_m
+x = kf_m
 y = kf_P
 # warmup
-kfilt!(x,y, 100, m0, P0, A, Q, H,Y, R)
+kfilt!(x, y, 1, m0, P0, A, Q, H,Y, R)
 
-x=kf_m
+x = kf_m
 y = kf_P
 
-@time kfilt!(x,y, niter, m0, P0, A, Q, H,Y, R)
+@time kfilt!(x, y, niter, m0, P0, A, Q, H,Y, R)
 
 rmse_kf =
     mapreduce(+, 1:length(x)) do k
@@ -117,6 +115,53 @@ rmse_kf =
     end
 rmse_kf = sqrt(rmse_kf / length(kf_m))
 
-
 println("rmse_kf = ", rmse_kf)
 @info x[end]
+
+
+#
+# RTS smoother
+#
+function rts!(x, y, kf_m, kf_P, A, Q, niter)
+    m = kf_m[end];
+    P = kf_P[end];
+    At = A';
+
+    for i in 1:niter
+        ms = m;
+        Ps = P;    
+        rts_m[end] = ms;
+        rts_P[end] = Ps;
+        for k in length(kf_m)-1:-1:1
+            mp = A*kf_m[k];
+            Pp = A*kf_P[k]*At+Q;
+            Ck = kf_P[k]*At/Pp; 
+            ms = kf_m[k] + Ck*(ms - mp);
+            Ps = kf_P[k] + Ck*(Ps - Pp)*Ck';
+            @inbounds x[k] = ms;
+            @inbounds y[k] = Ps;
+        end
+    end
+end
+
+rts_m = [SArray{Tuple{4}}(zeros(size(m0))) for i in 1:length(Y)];
+rts_P = [SArray{Tuple{4,4}}(zeros(size(P0))) for i in 1:length(Y)];
+
+x = rts_m
+y = rts_P
+
+rts!(x, y, kf_m, kf_P, A, Q, 1); # warmup
+
+x = rts_m
+y = rts_P
+
+@time rts!(x, y, kf_m, kf_P, A, Q, niter)
+
+rmse_rts =
+    mapreduce(+, 1:length(x)) do k
+        sum((x[k][1:2,1] - X[k][1:2,1]).^2)
+    end
+rmse_rts = sqrt(rmse_rts / length(rts_m))
+
+println("rmse_rts = ", rmse_rts)
+@info x[1]

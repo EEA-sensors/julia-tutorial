@@ -113,37 +113,34 @@ int main(void) {
   //
   // Kalman filter
   //
-
-  std::vector< Eigen::Vector4d > kf_m;  
-  std::vector< Eigen::Matrix4d > kf_P;
+  Eigen::Vector4d kf_m[Y.size()];
+  Eigen::Matrix4d kf_P[Y.size()];
 
   Eigen::Vector4d m;
   Eigen::Matrix4d P;
 
+  Eigen::Matrix4d At = A.transpose();
+  Eigen::Matrix<double,4,2> Ht = H.transpose();
+
   clock_t begin = clock();
   
   for (size_t i = 0; i < niter; i++) {
-    kf_m.clear();
-    kf_P.clear();
-    kf_m.reserve(Y.size());
-    kf_P.reserve(Y.size());
-    
     m = m0;
     P = P0;
     
     for (int k = 0; k < Y.size(); k++) {
       m = A*m;
-      P = A*P*A.transpose() + Q;
+      P = A*P*At + Q;
 
-      Eigen::Matrix2d S = H*P*H.transpose() + R;
+      Eigen::Matrix2d S = H*P*Ht + R;
       Eigen::LDLT<Eigen::Matrix2d> Sdecomp = S.ldlt();
       Eigen::Matrix<double,4,2> K = Sdecomp.solve(H * P).transpose();
       
       m = m + K*(Y[k] - H*m);
       P = P - K*S*K.transpose();
 
-      kf_m.push_back(m);
-      kf_P.push_back(P);
+      kf_m[k] = m;
+      kf_P[k] = P;
     }
   }
 
@@ -168,8 +165,8 @@ int main(void) {
   // RTS smoother
   //
 
-  std::vector< Eigen::Vector4d > rts_m;  
-  std::vector< Eigen::Matrix4d > rts_P;
+  Eigen::Vector4d rts_m[Y.size()];
+  Eigen::Matrix4d rts_P[Y.size()];
 
   Eigen::Vector4d ms;
   Eigen::Matrix4d Ps;
@@ -177,38 +174,28 @@ int main(void) {
   begin = clock();
   
   for (size_t i = 0; i < niter; i++) {
-    rts_m.clear();
-    rts_P.clear();
-    rts_m.reserve(kf_m.size());
-    rts_P.reserve(kf_m.size());
-    
     ms = m;
     Ps = P;
 
-    rts_m.push_back(ms);
-    rts_P.push_back(Ps);
-    
+    rts_m[Y.size()-1] = ms;
+    rts_P[Y.size()-1] = Ps;
+
     for (int k = Y.size()-2; k >= 0; k--) {
       Eigen::Vector4d mp = A*kf_m[k];
-      Eigen::Matrix4d Pp = A*kf_P[k]*A.transpose() + Q;
+      Eigen::Matrix4d Pp = A*kf_P[k]*At + Q;
       Eigen::Matrix4d Ck = Pp.ldlt().solve(A * kf_P[k]).transpose();
       ms = kf_m[k] + Ck*(ms - mp);
       Ps = kf_P[k] + Ck*(Ps - Pp)*Ck.transpose();
-      rts_m.push_back(ms);
-      rts_P.push_back(Ps);
+      rts_m[Y.size()-1-k] = ms;
+      rts_P[Y.size()-1-k] = Ps;
     }
   }
-
-  std::reverse(rts_m.begin(),rts_m.end());
-  std::reverse(rts_P.begin(),rts_P.end());
 
   end = clock();
   elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
 
-  // std::cout << "Size of rts_m is " << rts_m.size() << std::endl;
-  
   std::cout << "Elapsed time is " << elapsed_secs << " seconds." << std::endl;
-  
+
   double rmse_rts = 0;
   
   for (int k = 0; k < X.size(); k++) {
@@ -221,6 +208,5 @@ int main(void) {
 
   std::cout << "ms = " << std::endl << ms << std::endl;
 
-  
   return 0;    
 }

@@ -60,11 +60,13 @@ format long
     for i=1:niter
         m = m0;
         P = P0;
+        At = A';
+        Ht = H';
         for k=1:size(Y,2)
             m = A*m;
-            P = A*P*A' + Q;
+            P = A*P*At + Q;
 
-            S = H*P*H' + R;
+            S = H*P*Ht + R;
             K = P*H'/S;
             m = m + K*(Y(:,k) - H*m);
             P = P - K*S*K';
@@ -93,8 +95,8 @@ format long
         rts_P(:,:,end) = Ps;
         for k=size(kf_m,2)-1:-1:1
             mp = A*kf_m(:,k);
-            Pp = A*kf_P(:,:,k)*A'+Q;
-            Ck = kf_P(:,:,k)*A'/Pp; 
+            Pp = A*kf_P(:,:,k)*At+Q;
+            Ck = kf_P(:,:,k)*At/Pp; 
             ms = kf_m(:,k) + Ck*(ms - mp);
             Ps = kf_P(:,:,k) + Ck*(Ps - Pp)*Ck';
             rts_m(:,k) = ms;

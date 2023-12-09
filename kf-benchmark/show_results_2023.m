@@ -6,8 +6,11 @@
 %s_times = [0.490346 1.543 4.710070576 21.610301 87.7424 103.221923113];
 
 names = {'C++','Julia','Matlab','Python'};
-f_times = [0.157409 1.743044833 3.683195 31.48172116279602];
-s_times = [0.247047 1.862426958 7.447597 26.56629204750061];
+%f_times = [0.157409 1.743044833 3.683195 31.48172116279602];
+%s_times = [0.247047 1.862426958 7.447597 26.56629204750061];
+
+f_times = [0.131909 0.055412 3.683195 31.48172116279602];
+s_times = [0.213976 0.119128 7.447597 26.56629204750061];
 
 
 clf;
@@ -50,7 +53,7 @@ for i=1:2
 end
 
 rel_tot = f_times + s_times;
-rel_tot = rel_tot / rel_tot(1);
+rel_tot = rel_tot / rel_tot(2);
 
 for i=1:length(names)
     fprintf('%-7s ',names{i});
@@ -62,7 +65,7 @@ for i=1:length(names)
 end
 
 for i=1:length(names)
-    fprintf('%-7d ',round(rel_tot(i)));
+    fprintf('%-7.1f ',rel_tot(i));
     if i < length(names)
         fprintf('& ');
     else
