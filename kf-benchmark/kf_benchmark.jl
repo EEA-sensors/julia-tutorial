@@ -19,9 +19,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 =#
 
+
+#
+# Run with `julia --project=. -O2 kf_benchmark_improved.jl`
+#
+
 using DelimitedFiles
-using LinearAlgebra
 using StaticArrays
+using LinearAlgebra
 
 #
 # Read data
@@ -35,23 +40,28 @@ Y = [Y[:,k] for k in 1:size(Y,2)]
 #
 # Set the parameters
 #
+eye(n) = diagm(ones(n))
+
 q = 1.0;
 dt = 0.1;
 s = 0.5;
-A = [1.0 0 dt 0;
+A = SArray{Tuple{4,4}}([1.0 0 dt 0;
     0 1.0 0 dt;
     0 0 1.0 0;
-    0 0 0 1.0];
-Q = q*[dt^3/3 0 dt^2/2 0;
-        0 dt^3/3 0 dt^2/2;
-        dt^2/2 0 dt 0;
-        0 dt^2/2 0 dt];
+    0 0 0 1.0]);
+Q = SArray{Tuple{4,4}}(q*[dt^3/3 0 dt^2/2 0;
+    0 dt^3/3 0 dt^2/2;
+    dt^2/2 0 dt 0;
+    0 dt^2/2 0 dt]);
 
-H = [1.0 0 0 0;
-        0 1.0 0 0];
-R = s^2*I(2);
-m0 = [0;0;1.0;-1.0];
-P0 = I(4);
+H = SArray{Tuple{2,4}}([1.0 0 0 0;
+    0 1.0 0 0]);
+
+R = SArray{Tuple{2,2}}(s^2*eye(2));
+
+m0 = SArray{Tuple{4}}([0;0;1.0;-1.0]);
+
+P0 = SArray{Tuple{4,4}}(eye(4));
 
 niter = 10000
 println("niter = ", niter)
@@ -59,59 +69,63 @@ println("niter = ", niter)
 #
 # Kalman filter
 #
-function kf!(kf_m, kf_P, Y, m0, P0, A, Q, H, R, niter)
-    m = m0;
-    P = P0;
 
-    for i in 1:niter
-        m = m0;
-        P = P0;
+kf_m = [SArray{Tuple{4}}(zeros(size(m0))) for i in 1:length(Y)];
+kf_P = [SArray{Tuple{4,4}}(zeros(size(P0))) for i in 1:length(Y)];
+
+function kfilt!(x, y, niter, m0, P0, A, Q, H, Y, R)
+    m = SArray{Tuple{4}}(m0)
+    P = SArray{Tuple{4,4}}(P0)
+    At = A'
+    Ht = H'
+    for _ in 1:niter
+        m = m0
+        P = P0
         for k in 1:length(Y)
-            m = A*m;
-            P = A*P*A' + Q;
 
-            S = H*P*H' + R;
-            K = P*H'/S;
-            m = m + K*(Y[k] - H*m);
+            m = A*m;
+            P = A*P*At + Q;
+
+            S = H*P*Ht + R;
+            K = P*Ht/S;
+            D = Y[k]-H*m
+            m = m+K*D;
             P = P - K*S*K';
 
-            kf_m[k] = m;
-            kf_P[k] = P;
+            @inbounds x[k] = m;
+            @inbounds y[k] = P;
         end
     end
 end
 
-#
-# Run KF
-#
-function run_kf()
-    kf_m = [zeros(size(m0)) for i in 1:length(Y)];
-    kf_P = [zeros(size(P0)) for i in 1:length(Y)];
 
-    kf!(kf_m, kf_P, Y, m0, P0, A, Q, H, R, 1);  # warmup
+x = kf_m
+y = kf_P
+# warmup
+kfilt!(x, y, 1, m0, P0, A, Q, H,Y, R)
 
-    @time kf!(kf_m, kf_P, Y, m0, P0, A, Q, H, R, niter);
+x = kf_m
+y = kf_P
 
-    m = kf_m[end]
-    println("m = ", m)
+@time kfilt!(x, y, niter, m0, P0, A, Q, H,Y, R)
 
-    rmse_kf = 0.0;
-    for k in 1:length(kf_m)
-        rmse_kf = rmse_kf + sum((kf_m[k][1:2,1] - X[k][1:2,1]).^2)
+rmse_kf =
+    mapreduce(+, 1:length(x)) do k
+        sum((x[k][1:2,1] - X[k][1:2,1]).^2)
     end
-    rmse_kf = sqrt(rmse_kf / length(kf_m))
+rmse_kf = sqrt(rmse_kf / length(kf_m))
 
-    println("rmse_kf = ", rmse_kf)
-end
+println("rmse_kf = ", rmse_kf)
+@info x[end]
 
-run_kf();
 
 #
 # RTS smoother
 #
-function rts!(rts_m, rts_P, kf_m, kf_P, A, Q, niter)
+function rts!(x, y, kf_m, kf_P, A, Q, niter)
     m = kf_m[end];
     P = kf_P[end];
+    At = A';
 
     for i in 1:niter
         ms = m;
@@ -120,39 +134,34 @@ function rts!(rts_m, rts_P, kf_m, kf_P, A, Q, niter)
         rts_P[end] = Ps;
         for k in length(kf_m)-1:-1:1
             mp = A*kf_m[k];
-            Pp = A*kf_P[k]*A'+Q;
-            Ck = kf_P[k]*A'/Pp; 
+            Pp = A*kf_P[k]*At+Q;
+            Ck = kf_P[k]*At/Pp; 
             ms = kf_m[k] + Ck*(ms - mp);
             Ps = kf_P[k] + Ck*(Ps - Pp)*Ck';
-            rts_m[k] = ms;
-            rts_P[k] = Ps;
+            @inbounds x[k] = ms;
+            @inbounds y[k] = Ps;
         end
     end
 end
 
-function run_rts()
-    kf_m = [zeros(size(m0)) for i in 1:length(Y)];
-    kf_P = [zeros(size(P0)) for i in 1:length(Y)];
+rts_m = [SArray{Tuple{4}}(zeros(size(m0))) for i in 1:length(Y)];
+rts_P = [SArray{Tuple{4,4}}(zeros(size(P0))) for i in 1:length(Y)];
 
-    kf!(kf_m, kf_P, Y, m0, P0, A, Q, H, R, 1);
+x = rts_m
+y = rts_P
 
-    rts_m = [zeros(size(kf_m[1])) for i in 1:length(Y)];
-    rts_P = [zeros(size(kf_P[1])) for i in 1:length(Y)];
+rts!(x, y, kf_m, kf_P, A, Q, 1); # warmup
 
-    rts!(rts_m, rts_P, kf_m, kf_P, A, Q, 1);
+x = rts_m
+y = rts_P
 
-    @time rts!(rts_m, rts_P, kf_m, kf_P, A, Q, niter);
+@time rts!(x, y, kf_m, kf_P, A, Q, niter)
 
-    ms = rts_m[1]
-    println("ms = ", ms)
-
-    rmse_rts = 0.0;
-    for k in 1:length(rts_m)
-        rmse_rts = rmse_rts + sum((rts_m[k][1:2,1] - X[k][1:2,1]).^2)
+rmse_rts =
+    mapreduce(+, 1:length(x)) do k
+        sum((x[k][1:2,1] - X[k][1:2,1]).^2)
     end
-    rmse_rts = sqrt(rmse_rts / length(rts_m))
+rmse_rts = sqrt(rmse_rts / length(rts_m))
 
-    println("rmse_rts = ", rmse_rts)
-end
-
-run_rts();
+println("rmse_rts = ", rmse_rts)
+@info x[1]
