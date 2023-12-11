@@ -141,10 +141,11 @@ for i in range(niter):
 
 print("Elapsed time %s seconds." % (time.time() - start_time))
 
-print("{ms:}")
-
 rts_m = np.array(rts_m)
 rts_P = np.array(rts_P)
+
+print(f"{rts_m[0]:}")
+
 
 rmse_rts = 0
 for k in range(len(rts_m)):

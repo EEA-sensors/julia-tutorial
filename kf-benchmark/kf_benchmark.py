@@ -121,7 +121,7 @@ for i in range(niter):
 
 print("Elapsed time %s seconds." % (time.time() - start_time))
 
-print("{ms:}")
+print(f"{ms:}")
 
 rmse_rts = 0
 for k in range(len(rts_m)):
