@@ -19,89 +19,114 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 =#
 
+
+#
+# Run with `julia --project=. -O2 kf_benchmark_improved.jl`
+#
+
+using DelimitedFiles
+using StaticArrays
+using LinearAlgebra
+
 #
 # Read data
 #
 
-    X = readdlm("xdata.txt")';
-    X = [X[:,k] for k in 1:size(X,2)]
-    Y = readdlm("ydata.txt")';
-    Y = [Y[:,k] for k in 1:size(Y,2)]
+X = readdlm("xdata.txt")';
+X = [X[:,k] for k in 1:size(X,2)]
+Y = readdlm("ydata.txt")';
+Y = [Y[:,k] for k in 1:size(Y,2)]
 
 #
 # Set the parameters
 #
-    q = 1.0;
-    dt = 0.1;
-    s = 0.5;
-    A = [1.0 0 dt 0;
-        0 1.0 0 dt;
-        0 0 1.0 0;
-        0 0 0 1.0];
-    Q = q*[dt^3/3 0 dt^2/2 0;
-           0 dt^3/3 0 dt^2/2;
-           dt^2/2 0 dt 0;
-           0 dt^2/2 0 dt];
+eye(n) = diagm(ones(n))
 
-    H = [1.0 0 0 0;
-         0 1.0 0 0];
-    R = s^2*eye(2);
-    m0 = [0;0;1.0;-1.0];
-    P0 = eye(4);
+q = 1.0;
+dt = 0.1;
+s = 0.5;
+A = SArray{Tuple{4,4}}([1.0 0 dt 0;
+    0 1.0 0 dt;
+    0 0 1.0 0;
+    0 0 0 1.0]);
+Q = SArray{Tuple{4,4}}(q*[dt^3/3 0 dt^2/2 0;
+    0 dt^3/3 0 dt^2/2;
+    dt^2/2 0 dt 0;
+    0 dt^2/2 0 dt]);
 
-    niter = 10000
-    println("niter = ", niter)
+H = SArray{Tuple{2,4}}([1.0 0 0 0;
+    0 1.0 0 0]);
+
+R = SArray{Tuple{2,2}}(s^2*eye(2));
+
+m0 = SArray{Tuple{4}}([0;0;1.0;-1.0]);
+
+P0 = SArray{Tuple{4,4}}(eye(4));
+
+niter = 10000
+println("niter = ", niter)
 
 #
 # Kalman filter
 #
 
-    kf_m = [zeros(size(m0)) for i in 1:length(Y)];
-    kf_P = [zeros(size(P0)) for i in 1:length(Y)];
+kf_m = [SArray{Tuple{4}}(zeros(size(m0))) for i in 1:length(Y)];
+kf_P = [SArray{Tuple{4,4}}(zeros(size(P0))) for i in 1:length(Y)];
 
-    m = m0;
-    P = P0;
-
-    tic()
-    for i in 1:niter
-        m = m0;
-        P = P0;
+function kfilt!(x, y, niter, m0, P0, A, Q, H, Y, R)
+    m = SArray{Tuple{4}}(m0)
+    P = SArray{Tuple{4,4}}(P0)
+    At = A'
+    Ht = H'
+    for _ in 1:niter
+        m = m0
+        P = P0
         for k in 1:length(Y)
-            m = A*m;
-            P = A*P*A' + Q;
 
-            S = H*P*H' + R;
-            K = P*H'/S;
-            m = m + K*(Y[k] - H*m);
+            m = A*m;
+            P = A*P*At + Q;
+
+            S = H*P*Ht + R;
+            K = P*Ht/S;
+            D = Y[k]-H*m
+            m = m+K*D;
             P = P - K*S*K';
 
-            kf_m[k] = m;
-            kf_P[k] = P;
+            @inbounds x[k] = m;
+            @inbounds y[k] = P;
         end
     end
-    toc()
+end
 
-    println("m = ", m)
 
-    rmse_kf = 0.0;
-    for k in 1:length(kf_m)
-        rmse_kf = rmse_kf + sum((kf_m[k][1:2,1] - X[k][1:2,1]).^2)
+x = kf_m
+y = kf_P
+# warmup
+kfilt!(x, y, 1, m0, P0, A, Q, H,Y, R)
+
+x = kf_m
+y = kf_P
+
+@time kfilt!(x, y, niter, m0, P0, A, Q, H,Y, R)
+
+rmse_kf =
+    mapreduce(+, 1:length(x)) do k
+        sum((x[k][1:2,1] - X[k][1:2,1]).^2)
     end
-    rmse_kf = sqrt(rmse_kf / length(kf_m))
+rmse_kf = sqrt(rmse_kf / length(kf_m))
 
-    println("rmse_kf = ", rmse_kf)
+println("rmse_kf = ", rmse_kf)
+@info x[end]
+
 
 #
 # RTS smoother
 #
+function rts!(x, y, kf_m, kf_P, A, Q, niter)
+    m = kf_m[end];
+    P = kf_P[end];
+    At = A';
 
-    rts_m = [zeros(size(m0)) for i in 1:length(Y)];
-    rts_P = [zeros(size(P0)) for i in 1:length(Y)];
-    
-    ms = m;
-    Ps = P;
-
-    tic()
     for i in 1:niter
         ms = m;
         Ps = P;    
@@ -109,23 +134,34 @@
         rts_P[end] = Ps;
         for k in length(kf_m)-1:-1:1
             mp = A*kf_m[k];
-            Pp = A*kf_P[k]*A'+Q;
-            Ck = kf_P[k]*A'/Pp; 
+            Pp = A*kf_P[k]*At+Q;
+            Ck = kf_P[k]*At/Pp; 
             ms = kf_m[k] + Ck*(ms - mp);
             Ps = kf_P[k] + Ck*(Ps - Pp)*Ck';
-            rts_m[k] = ms;
-            rts_P[k] = Ps;
+            @inbounds x[k] = ms;
+            @inbounds y[k] = Ps;
         end
     end
-    toc()
-    
-    println("ms = ", ms)
+end
 
-    rmse_rts = 0.0;
-    for k in 1:length(rts_m)
-        rmse_rts = rmse_rts + sum((rts_m[k][1:2,1] - X[k][1:2,1]).^2)
+rts_m = [SArray{Tuple{4}}(zeros(size(m0))) for i in 1:length(Y)];
+rts_P = [SArray{Tuple{4,4}}(zeros(size(P0))) for i in 1:length(Y)];
+
+x = rts_m
+y = rts_P
+
+rts!(x, y, kf_m, kf_P, A, Q, 1); # warmup
+
+x = rts_m
+y = rts_P
+
+@time rts!(x, y, kf_m, kf_P, A, Q, niter)
+
+rmse_rts =
+    mapreduce(+, 1:length(x)) do k
+        sum((x[k][1:2,1] - X[k][1:2,1]).^2)
     end
-    rmse_rts = sqrt(rmse_rts / length(rts_m))
-    
-    println("rmse_rts = ", rmse_rts)
+rmse_rts = sqrt(rmse_rts / length(rts_m))
 
+println("rmse_rts = ", rmse_rts)
+@info x[1]

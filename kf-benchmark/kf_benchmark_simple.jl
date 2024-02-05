@@ -19,6 +19,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 =#
 
+using DelimitedFiles
+using LinearAlgebra
+
 #
 # Read data
 #
@@ -43,9 +46,9 @@
 
     H = [1.0 0 0 0;
          0 1.0 0 0];
-    R = s^2*eye(2);
+    R = s^2*I(2);
     m0 = [0;0;1.0;-1.0];
-    P0 = eye(4);
+    P0 = I(4);
 
     niter = 10000
     println("niter = ", niter)

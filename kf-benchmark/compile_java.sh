@@ -1,1 +1,1 @@
-javac -classpath /Users/ssarkka/prg/ejml-v0.28-libs/EJML-simple-0.28.jar kf_benchmark.java
+javac -classpath ".:ejml-v0.42-libs/EJML-simple-0.42.jar" kf_benchmark.java

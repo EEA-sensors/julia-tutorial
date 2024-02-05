@@ -19,34 +19,35 @@
 import time
 from math import *
 
+import jax
+import jax.numpy as jnp
 import numpy as np
-from scipy import linalg
+from jax.scipy import linalg
 
-
+jax.config.update("jax_enable_x64", True)
 #
 # Load data
 #
 X = np.loadtxt('xdata.txt').T
 Y_tmp = np.loadtxt('ydata.txt').T
 Y = [np.array(Y_tmp[:, k]).T for k in range(Y_tmp.shape[1])]
-
+Y = jnp.array(Y)
 #
 # Parameters
 #
-q = 1.0
+q = 1
 dt = 0.1
 s = 0.5
 
 A = np.array([[1, 0, dt, 0],
               [0, 1, 0, dt],
               [0, 0, 1, 0],
-              [0, 0, 0, 1]],
-             dtype=float)
+              [0, 0, 0, 1]], dtype=float)
 
 Q = q * np.array([[dt ** 3 / 3, 0, dt ** 2 / 2, 0],
                   [0, dt ** 3 / 3, 0, dt ** 2 / 2],
                   [dt ** 2 / 2, 0, dt, 0],
-                  [0, dt ** 2 / 2, 0, dt]], dtype=float)
+                  [0, dt ** 2 / 2, 0, dt]])
 
 H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=float)
 R = s ** 2 * np.eye(2, dtype=float)
@@ -55,37 +56,45 @@ P0 = np.eye(4, dtype=float)
 
 niter = 10000
 
+
 #
 # Kalman filter
 #
+@jax.jit
+def kf_fn_jax():
+    def body(carry, y):
+        m, P = carry
 
-kf_m = np.zeros([len(Y), P0.shape[0]])
-kf_P = np.zeros([len(Y), *P0.shape])
+        m = A @ m
+        P = A @ P @ A.T + Q
+
+        S = H @ P @ H.T + R
+        K = linalg.solve(S, jnp.dot(H, P), assume_a="pos").T
+        m += K @ (y - H @ m)
+        P -= K @ H @ P
+
+        return (m, P), (m, P)
+
+    _, (ms, Ps) = jax.lax.scan(body, (m0, P0), Y)
+    return ms, Ps
+
+
+# compile run
+kf_m, kf_P = kf_fn_jax()
+kf_m.block_until_ready()
 
 start_time = time.time()
 
+
 for i in range(niter):
-    m = m0
-    P = P0
-    for k in range(len(Y)):
-        m = A.dot(m)
-        P = A.dot(P).dot(A.T) + Q
-        HP = H.dot(P)
-        S = HP.dot(H.T) + R
-
-        cholS = linalg.cho_factor(S, check_finite=False, overwrite_a=True)
-        KT = linalg.cho_solve(cholS, HP, check_finite=False, overwrite_b=True)
-
-        m += np.dot(Y[k] - H.dot(m), KT)
-        P -= KT.T.dot(HP)
-
-        kf_m[k] = m
-        kf_P[k] = P
+    kf_m, kf_P = kf_fn_jax()
+    kf_m.block_until_ready()
 
 print("Elapsed time %s seconds." % (time.time() - start_time))
 
-print(f"{m:}")
-
+print(f"{kf_m[-1]:}")
+kf_m = np.array(kf_m)
+kf_P = np.array(kf_P)
 rmse_kf = 0
 for k in range(len(kf_m)):
     rmse_kf += (kf_m[k][0] - X[0, k]) * (kf_m[k][0] - X[0, k]) + (kf_m[k][1] - X[1, k]) * (kf_m[k][1] - X[1, k])
@@ -93,40 +102,54 @@ for k in range(len(kf_m)):
 rmse_kf = sqrt(rmse_kf / len(kf_m))
 print(f"{rmse_kf:}")
 
+
 #
 # RTS smoother
 #
+@jax.jit
+def rts_fn_jax_fn():
+    kf_m_ = kf_m[::-1]
+    kf_P_ = kf_P[::-1]
+    def body(carry, inp):
+        mf, Pf = inp
+        prev_m, prev_P = carry
 
+        mp = A @ mf
+        Pp = A @ Pf @ A.T + Q
 
-rts_m = np.zeros((len(Y), P0.shape[0]))
-rts_P = np.zeros((len(Y), *P0.shape))
+        K = linalg.solve(Pp, A @ Pf, assume_a="pos").T
+        m = mf + K @ (prev_m - mp)
+        P = Pf + K @ (prev_P - Pp) @ K.T
+
+        return (m, P), (m, P)
+
+    _, (ms, Ps) = jax.lax.scan(body, (kf_m_[0], kf_P_[0]), (kf_m_[1:], kf_P_[1:]))
+
+    ms, Ps = ms[::-1], Ps[::-1]
+    ms = jnp.concatenate((ms, kf_m_[0][None, :]), axis=0)
+    Ps = jnp.concatenate((Ps, kf_P_[0][None, :, :]), axis=0)
+    return ms, Ps
+
+# compile run
+rts_m, rts_P = rts_fn_jax_fn()
+rts_m.block_until_ready()
 start_time = time.time()
 
 for i in range(niter):
-    ms = m
-    Ps = P
-    rts_m[-1] = ms
-    rts_P[-1] = Ps
-    for k in reversed(range(len(Y) - 1)):
-        mp = A.dot(kf_m[k])
-        Pp = A.dot(kf_P[k]).dot(A.T) + Q
-
-        LL = linalg.cho_factor(Pp, check_finite=False, overwrite_a=True)
-        Ck = linalg.cho_solve(LL, A.dot(kf_P[k]), check_finite=False, overwrite_b=True).T
-        ms = kf_m[k] + Ck.dot(ms - mp)
-        Ps = kf_P[k] + Ck.dot(Ps - Pp).dot(Ck.T)
-
-        rts_m[k] = ms
-        rts_P[k] = Ps
+    rts_m, rts_P = rts_fn_jax_fn()
+    rts_m.block_until_ready()
 
 print("Elapsed time %s seconds." % (time.time() - start_time))
 
-print(f"{ms:}")
+rts_m = np.array(rts_m)
+rts_P = np.array(rts_P)
+
+print(f"{rts_m[0]:}")
+
 
 rmse_rts = 0
 for k in range(len(rts_m)):
     rmse_rts += (rts_m[k][0] - X[0, k]) * (rts_m[k][0] - X[0, k]) + (rts_m[k][1] - X[1, k]) * (rts_m[k][1] - X[1, k])
 
-print(len(rts_m))
 rmse_rts = sqrt(rmse_rts / len(rts_m))
 print(f"{rmse_rts:}")
